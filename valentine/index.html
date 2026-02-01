@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Be My Valentine?</title>
+
+<style>
+    body {
+        margin: 0;
+        height: 100vh;
+        font-family: Arial, sans-serif;
+        background: #fdddf2;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+    }
+
+    h1 {
+        font-size: 3em;
+        margin: 20px 0;
+        color : deeppink;
+    }
+
+    img {
+        width: 300px;
+        margin-bottom: 20px;
+    }
+
+    button {
+        padding: 15px 30px;
+        font-size: 20px;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+    }
+
+    #yesBtn {
+        background-color: #ff4d6d;
+        color: white;
+        transition: transform 260ms cubic-bezier(.2,.8,.2,1), padding 200ms;
+        will-change: transform, padding;
+    }
+
+    #yesBtn.big {
+        transform: scale(1.35);
+        padding: 20px 40px;
+    }
+
+    #noBtn {
+        background-color: #333;
+        color: white;
+        position: fixed;   /* IMPORTANT */
+        transition: left 220ms cubic-bezier(.2,.8,.2,1), top 220ms cubic-bezier(.2,.8,.2,1);
+        will-change: left, top;
+    }
+</style>
+</head>
+
+<body>
+
+<img src="valentine.avif" alt="Valentine Image">
+<h1>Will you be my valentine?</h1>
+
+<div>
+    <button id="yesBtn">Yes</button>
+    <button id="noBtn">No</button>
+</div>
+
+<script>
+const noBtn = document.getElementById("noBtn");
+const yesBtn = document.getElementById("yesBtn");
+
+// Place No button near the Yes button (center area) on start
+function placeNearYes() {
+    const yesRect = yesBtn.getBoundingClientRect();
+    const btnRect = noBtn.getBoundingClientRect();
+
+    // Try to place to the right of Yes, slightly centered vertically with slight offset
+    const startX = yesRect.right + 20;
+    const startY = yesRect.top + (yesRect.height - btnRect.height) / 2;
+
+    // If that would go off screen, fallback to centered near viewport center
+    let newX = startX;
+    let newY = startY;
+    if (newX + btnRect.width > window.innerWidth - 10) {
+        newX = (window.innerWidth - btnRect.width) / 2;
+    }
+    if (newY + btnRect.height > window.innerHeight - 10 || newY < 10) {
+        newY = (window.innerHeight - btnRect.height) / 2;
+    }
+
+    noBtn.style.left = Math.max(0, Math.min(window.innerWidth - btnRect.width, newX)) + "px";
+    noBtn.style.top  = Math.max(0, Math.min(window.innerHeight - btnRect.height, newY)) + "px";
+}
+placeNearYes();
+
+// Yes button redirect
+yesBtn.addEventListener("click", () => {
+    window.location.href = "page2.html";
+});
+
+// Smooth runaway behavior: only trigger when cursor approaches
+document.addEventListener("mousemove", (e) => {
+    const btnRect = noBtn.getBoundingClientRect();
+
+    const btnX = btnRect.left + btnRect.width / 2;
+    const btnY = btnRect.top + btnRect.height / 2;
+
+    const dx = btnX - e.clientX;
+    const dy = btnY - e.clientY;
+
+    const distance = Math.hypot(dx, dy);
+
+    const triggerDistance = 140;   // start reacting inside this radius
+    const baseMove = 180;          // base movement magnitude
+    const jitter = 30;             // small random jitter for natural motion
+    const edgeMargin = 8;          // keep at least this many px away from window edge
+
+    if (distance < triggerDistance) {
+        // Normalize direction away from cursor (btn center - cursor)
+        const nx = distance === 0 ? (Math.random() - 0.5) : dx / distance;
+        const ny = distance === 0 ? (Math.random() - 0.5) : dy / distance;
+
+        // Strength scales as cursor gets closer (0..1)
+        const strength = Math.min(1, (triggerDistance - distance) / triggerDistance);
+
+        // Move amount increases as cursor approaches
+        const moveAmount = baseMove * (0.6 + 0.8 * strength);
+
+        // Add a little randomness so it doesn't always move to same spot
+        const randX = (Math.random() - 0.5) * jitter;
+        const randY = (Math.random() - 0.5) * jitter;
+
+        // Start candidate position
+        let newX = btnRect.left + nx * moveAmount + randX;
+        let newY = btnRect.top  + ny * moveAmount + randY;
+
+        // Keep inside viewport with margin
+        const clampX = (x) => Math.max(edgeMargin, Math.min(window.innerWidth - btnRect.width - edgeMargin, x));
+        const clampY = (y) => Math.max(edgeMargin, Math.min(window.innerHeight - btnRect.height - edgeMargin, y));
+
+        newX = clampX(newX);
+        newY = clampY(newY);
+
+        // If the cursor would still be inside the button after clamping, push it further away.
+        // Try a few times, then fall back to a safe position (center or opposite quadrant).
+        const isCursorInside = (x, y) => {
+            return e.clientX >= x && e.clientX <= x + btnRect.width &&
+                   e.clientY >= y && e.clientY <= y + btnRect.height;
+        };
+
+        let attempts = 0;
+        while (isCursorInside(newX, newY) && attempts < 3) {
+            const extraPush = Math.max(btnRect.width, btnRect.height) * (1.2 + 0.6 * attempts) + 20;
+            newX = clampX(newX + nx * extraPush);
+            newY = clampY(newY + ny * extraPush);
+            attempts++;
+        }
+
+        if (isCursorInside(newX, newY)) {
+            // fallback: place button on the side opposite the cursor (or center if that still collides)
+            const centerX = (window.innerWidth - btnRect.width) / 2;
+            const centerY = (window.innerHeight - btnRect.height) / 2;
+
+            // choose quadrant opposite to cursor
+            const oppositeX = e.clientX < window.innerWidth / 2
+                ? window.innerWidth - btnRect.width - edgeMargin
+                : edgeMargin;
+            const oppositeY = e.clientY < window.innerHeight / 2
+                ? window.innerHeight - btnRect.height - edgeMargin
+                : edgeMargin;
+
+            // prefer opposite quadrant, otherwise center
+            newX = clampX(oppositeX);
+            newY = clampY(oppositeY);
+
+            if (isCursorInside(newX, newY)) {
+                newX = clampX(centerX);
+                newY = clampY(centerY);
+            }
+        }
+
+        // Prevent accidental click during the move
+        noBtn.style.pointerEvents = "none";
+        // Ensure pointer events re-enable shortly after transition finishes
+        clearTimeout(noBtn._reEnableTimeout);
+        noBtn._reEnableTimeout = setTimeout(() => {
+            noBtn.style.pointerEvents = "auto";
+        }, 260); // slightly longer than CSS transition duration
+
+        noBtn.style.left = newX + "px";
+        noBtn.style.top  = newY + "px";
+    }
+});
+
+// New: when user presses the No button, briefly enlarge the Yes button
+noBtn.addEventListener("click", () => {
+    // add class to grow yes button
+    yesBtn.classList.add("big");
+
+    // clear previous timer if any
+    clearTimeout(yesBtn._shrinkTimeout);
+    // remove the class after 1.5s so it returns to normal
+    yesBtn._shrinkTimeout = setTimeout(() => {
+        yesBtn.classList.remove("big");
+    }, 1500);
+});
+</script>
+
+</body>
+</html>
